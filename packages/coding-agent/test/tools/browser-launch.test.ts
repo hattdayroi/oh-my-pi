@@ -233,8 +233,13 @@ describe("browser executable selection", () => {
 				for (const xdg of [xdgCache, path.join(tempDir.path(), "data"), path.join(tempDir.path(), "state")]) {
 					fs.mkdirSync(path.join(xdg, APP_NAME), { recursive: true });
 				}
+				// The XDG roots only pin the child's puppeteer cache while PI_CODING_AGENT_DIR
+				// is unset: `refreshDirsFromEnv` prefers the explicit agent dir over every
+				// XDG root, so a machine-wide export would resolve the cache under
+				// `<agentDir>/puppeteer` and miss the stub seeded below.
+				const { PI_CODING_AGENT_DIR: _agentDir, PI_CONFIG_DIR: _configDir, ...hostEnv } = process.env;
 				const env = {
-					...process.env,
+					...hostEnv,
 					HOME: home,
 					XDG_CACHE_HOME: xdgCache,
 					XDG_DATA_HOME: path.join(tempDir.path(), "data"),
@@ -271,5 +276,10 @@ describe("browser executable selection", () => {
 				await tempDir.remove();
 			}
 		},
+		// The probe is a separate `bun` process, so this test's cost includes a full
+		// runtime startup plus the stub-binary writes. That exceeded bun's 5000ms
+		// default when the whole suite ran with the CPU saturated, even though the
+		// resolution logic itself is synchronous.
+		60_000,
 	);
 });
